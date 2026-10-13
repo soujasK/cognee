@@ -35,7 +35,7 @@ async def test_nvidia_nim_provider_adds_input_type_and_omits_dimensions(monkeypa
 
     monkeypatch.setattr(mod.litellm, "aembedding", fake_aembedding)
 
-    await engine.embed_text(["hello world"])
+    await engine.embed(["hello world"])
 
     assert "dimensions" not in captured_kwargs
     assert captured_kwargs["input_type"] == "passage"
@@ -73,7 +73,7 @@ async def test_nvidia_nim_provider_inferred_from_model_prefix(monkeypatch):
 
     monkeypatch.setattr(mod.litellm, "aembedding", fake_aembedding)
 
-    await engine.embed_text(["hello world"])
+    await engine.embed(["hello world"])
 
     assert "dimensions" not in captured_kwargs
 
@@ -103,7 +103,7 @@ async def test_non_nvidia_provider_keeps_dimensions_and_skips_input_type(monkeyp
 
     monkeypatch.setattr(mod.litellm, "aembedding", fake_aembedding)
 
-    await engine.embed_text(["hello world"])
+    await engine.embed(["hello world"])
 
     assert captured_kwargs["dimensions"] == 3072
     assert "input_type" not in captured_kwargs
@@ -134,7 +134,7 @@ async def test_openai_compatible_engine_forwards_input_type_via_extra_body(monke
     fake_response = Mock(data=[fake_item])
     engine._client.embeddings.create = AsyncMock(return_value=fake_response)
 
-    await engine.embed_text(["find me a match"])
+    await engine.embed(["find me a match"])
 
     _, kwargs = engine._client.embeddings.create.call_args
     assert kwargs["extra_body"] == {"input_type": "query"}

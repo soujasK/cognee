@@ -106,15 +106,15 @@ def _install_embedding_recorder(store: dict[str, list[float]]) -> dict:
 
     engine = get_embedding_engine()
     engine_cls = type(engine)
-    original = engine_cls.embed_text
+    original = engine_cls.embed
 
     async def recording_embed(self, text):
-        vectors = await original(self, text)
-        for item, vector in zip(text, vectors):
+        result = await original(self, text)
+        for item, vector in zip(text, result.vectors):
             store[item] = vector
-        return vectors
+        return result
 
-    engine_cls.embed_text = recording_embed
+    engine_cls.embed = recording_embed
     return {
         "model": getattr(engine, "model", None),
         "dimensions": getattr(engine, "dimensions", None),

@@ -27,6 +27,9 @@ from cognee.infrastructure.databases.vector import get_vector_engine_async
 from cognee.infrastructure.databases.vector.embeddings.get_embedding_engine import (
     get_embedding_engine,
 )
+from cognee.infrastructure.databases.vector.embeddings.MeteredEmbeddingEngine import (
+    MeteredEmbeddingEngine,
+)
 from cognee.modules.chunking.models.DocumentChunk import DocumentChunk
 from cognee.modules.data.methods import get_authorized_existing_datasets
 from cognee.modules.engine.models import NodeSet
@@ -260,7 +263,7 @@ async def build_truth_subspace(
                 error=error,
             )
 
-        embedding_engine = get_embedding_engine()
+        embedding_engine = MeteredEmbeddingEngine(get_embedding_engine())
         try:
             learning_vecs = await embedding_engine.embed_text(learning_texts)
         except Exception as error:

@@ -121,13 +121,17 @@ def hashed_embedding(text: str, dims: int) -> list[float]:
     return [v / norm for v in vector]
 
 
-async def _mock_embed_text(self, text: list[str]) -> list[list[float]]:
+async def _mock_embed(self, text: list[str]):
+    from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import (
+        EmbeddingResult,
+    )
+
     dims = int(self.get_vector_size())
-    return [hashed_embedding(t, dims) for t in text]
+    return EmbeddingResult(vectors=[hashed_embedding(t, dims) for t in text], tokens=0)
 
 
 def install_mock_embeddings() -> None:
-    """Patch every built-in embedding engine so ``embed_text`` hashes locally."""
+    """Patch every built-in embedding engine so ``embed`` hashes locally."""
     for module_name, class_name in _EMBEDDING_ENGINES:
         try:
             module = importlib.import_module(module_name)
@@ -136,8 +140,8 @@ def install_mock_embeddings() -> None:
         engine_class = getattr(module, class_name, None)
         if engine_class is None:
             continue
-        _ORIGINALS.setdefault(f"embed:{class_name}", (engine_class, engine_class.embed_text))
-        engine_class.embed_text = _mock_embed_text
+        _ORIGINALS.setdefault(f"embed:{class_name}", (engine_class, engine_class.embed))
+        engine_class.embed = _mock_embed
 
     _clear_engine_caches()
 
@@ -363,7 +367,7 @@ def uninstall_all() -> None:
         LLMGateway.acreate_structured_output = original_llm
     for key in [k for k in _ORIGINALS if k.startswith("embed:")]:
         engine_class, original = _ORIGINALS.pop(key)
-        engine_class.embed_text = original
+        engine_class.embed = original
     _clear_engine_caches()
 
 

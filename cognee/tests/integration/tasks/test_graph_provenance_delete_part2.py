@@ -29,6 +29,7 @@ from cognee.infrastructure.databases.provenance import (
     GRAPH_DELETE_MODE_GRAPH_PROVENANCE,
     GRAPH_DELETE_MODE_KEY,
 )
+from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingResult
 from cognee.infrastructure.databases.vector.embeddings.LiteLLMEmbeddingEngine import (
     LiteLLMEmbeddingEngine,
 )
@@ -76,7 +77,7 @@ def _mock_llm_output(text_input, system_prompt, response_model):
 
 async def _fake_embed(self, text):
     """Deterministic zero vectors — values don't matter, only presence/deletion."""
-    return [[0.0] * (self.dimensions or 8) for _ in text]
+    return EmbeddingResult(vectors=[[0.0] * (self.dimensions or 8) for _ in text], tokens=0)
 
 
 async def _graph_names():
@@ -141,7 +142,7 @@ async def _ingest_single_run():
 
 
 @pytest.mark.asyncio
-@patch.object(LiteLLMEmbeddingEngine, "embed_text", _fake_embed)
+@patch.object(LiteLLMEmbeddingEngine, "embed", _fake_embed)
 @patch.object(LLMGateway, "acreate_structured_output", new_callable=AsyncMock)
 async def test_data_item_delete_shared_entities_survive(mock_struct, tmp_path):
     """Delete DOC2: its unowned entity (Berlin) and edges go, but entities shared
@@ -180,7 +181,7 @@ async def test_data_item_delete_shared_entities_survive(mock_struct, tmp_path):
 
 
 @pytest.mark.asyncio
-@patch.object(LiteLLMEmbeddingEngine, "embed_text", _fake_embed)
+@patch.object(LiteLLMEmbeddingEngine, "embed", _fake_embed)
 @patch.object(LLMGateway, "acreate_structured_output", new_callable=AsyncMock)
 async def test_unowned_edge_deleted_endpoints_survive(mock_struct, tmp_path):
     """Delete DOC1: its unique 'knows' edge is removed while its endpoint entities

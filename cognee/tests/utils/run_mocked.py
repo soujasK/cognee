@@ -9,7 +9,7 @@ the target script. By default the replay map is EMPTY, so:
   model's default instance (an empty ``KnowledgeGraph``, a canned summary, an
   empty string for plain completions) with zero network calls;
 * embeddings go through cognee's built-in ``MOCK_EMBEDDING`` switch — the real
-  engine and tokenizer still shape chunking, but ``embed_text`` returns
+  engine and tokenizer still shape chunking, but ``embed`` returns
   zero-vectors.
 
 ``--replay <map.json>`` runs the script in seeded mode instead. The JSON file
@@ -60,12 +60,15 @@ def _hashed_unit_vector(text: str, dimensions: int) -> list[float]:
 
 
 def _install_hashed_embeddings() -> None:
-    """Replace ``embed_text`` on the configured engine class with hashed vectors.
+    """Replace ``embed`` on the configured engine class with hashed vectors.
 
     Class-level, like the benchmark's document-embedding replay, so instances
     constructed later (caches are cleared by ``install_mocks``) use it too. The
     real engine is still constructed: its tokenizer keeps deciding chunk sizes.
     """
+    from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import (
+        EmbeddingResult,
+    )
     from cognee.infrastructure.databases.vector.embeddings.get_embedding_engine import (
         get_embedding_engine,
     )
@@ -73,9 +76,10 @@ def _install_hashed_embeddings() -> None:
     engine_cls = type(get_embedding_engine())
 
     async def hashed_embed(self, text):
-        return [_hashed_unit_vector(item, self.dimensions) for item in text]
+        vectors = [_hashed_unit_vector(item, self.dimensions) for item in text]
+        return EmbeddingResult(vectors=vectors, tokens=0)
 
-    engine_cls.embed_text = hashed_embed
+    engine_cls.embed = hashed_embed
 
 
 def main() -> None:

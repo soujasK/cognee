@@ -21,6 +21,9 @@ from cognee.infrastructure.databases.exceptions import EmbeddingException
 from cognee.infrastructure.databases.vector.embeddings.LiteLLMEmbeddingEngine import (
     LiteLLMEmbeddingEngine,
 )
+from cognee.infrastructure.databases.vector.embeddings.MeteredEmbeddingEngine import (
+    MeteredEmbeddingEngine,
+)
 
 
 def _response(status_code: int) -> httpx.Response:
@@ -77,7 +80,7 @@ async def test_terminal_error_makes_one_attempt_and_keeps_its_class(monkeypatch,
     engine, calls = _engine(monkeypatch, lambda _: error)
 
     with pytest.raises(type(error)):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
 
@@ -109,7 +112,7 @@ async def test_missing_provider_sdk_behind_litellm_makes_one_attempt(monkeypatch
     engine, calls = _engine(monkeypatch, lambda _: wrapped)
 
     with pytest.raises(EmbeddingException, match="boto3"):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
 
@@ -121,7 +124,7 @@ async def test_missing_package_raised_directly_makes_one_attempt(monkeypatch):
     )
 
     with pytest.raises(EmbeddingException, match="boto3"):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
 
@@ -142,7 +145,7 @@ async def test_connection_error_without_a_missing_package_is_still_retried(monke
     engine, calls = _engine(monkeypatch, _connection_reset_then_auth)
 
     with pytest.raises(litellm.exceptions.AuthenticationError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 2
 
@@ -161,7 +164,7 @@ async def test_server_error_is_still_retried(monkeypatch):
     engine, calls = _engine(monkeypatch, _server_error_then_auth)
 
     with pytest.raises(litellm.exceptions.AuthenticationError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 2
 
@@ -171,7 +174,7 @@ async def test_wrapped_error_message_names_the_real_cause(monkeypatch):
     """The generic wrap must carry the provider error, not just a bare 422."""
     engine, _ = _engine(monkeypatch, lambda _: RuntimeError("provider said no"))
     # One attempt without the retry decorator: the message is what is under test.
-    embed_once = inspect.unwrap(LiteLLMEmbeddingEngine.embed_text)
+    embed_once = inspect.unwrap(LiteLLMEmbeddingEngine.embed)
 
     with pytest.raises(EmbeddingException) as exc_info:
         await embed_once(engine, ["hello world"])
@@ -188,7 +191,7 @@ async def test_preflight_surfaces_real_404_in_one_attempt(monkeypatch):
     engine, calls = _engine(monkeypatch, lambda _: _not_found())
 
     async def _fake_get_vector_engine_async():
-        return SimpleNamespace(embedding_engine=engine)
+        return SimpleNamespace(embedding_engine=MeteredEmbeddingEngine(engine))
 
     monkeypatch.setattr(vector_module, "get_vector_engine_async", _fake_get_vector_engine_async)
 

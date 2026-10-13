@@ -49,7 +49,7 @@ async def test_auth_error_bypasses_retry(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_auth)
 
     with pytest.raises(litellm.exceptions.AuthenticationError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     # The critical assertion: exactly one attempt, no backoff ladder.
     assert calls["count"] == 1
@@ -77,7 +77,7 @@ async def test_permission_denied_bypasses_retry(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_perm)
 
     with pytest.raises(litellm.exceptions.PermissionDeniedError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
 
@@ -97,6 +97,6 @@ async def test_cancelled_error_bypasses_retry(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_cancelled)
 
     with pytest.raises(asyncio.CancelledError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1

@@ -7,6 +7,7 @@ from cognee.infrastructure.databases.exceptions import (
     EmbeddingContextWindowTooSmallError,
     EmbeddingException,
 )
+from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingResult
 
 
 @pytest.mark.asyncio
@@ -32,10 +33,10 @@ async def test_ollama_embedding_splits_batch_on_context_window_error():
             "ok 1": [1.0, 1.0],
             "ok 2": [2.0, 2.0],
         }
-        return mapping[prompt]
+        return EmbeddingResult(vectors=[mapping[prompt]], tokens=0)
 
     with patch.object(engine, "_get_embedding", side_effect=fake_get_embedding):
-        result = await engine.embed_text(["too long", "ok 1", "ok 2"])
+        result = (await engine.embed(["too long", "ok 1", "ok 2"])).vectors
 
     # "too long" → pooled([1.0,1.0], [2.0,2.0]) = [1.5,1.5]; others pass through
     assert result == [[1.5, 1.5], [1.0, 1.0], [2.0, 2.0]]
@@ -61,7 +62,7 @@ async def test_ollama_embedding_raises_when_short_text_still_exceeds_context_win
         patch.object(engine, "_get_embedding", side_effect=always_fail),
         pytest.raises(EmbeddingException, match="too short to split further"),
     ):
-        await engine.embed_text(["ab"])
+        await engine.embed(["ab"])
 
 
 @pytest.mark.asyncio
@@ -107,7 +108,7 @@ async def test_fastembed_splits_batch_on_context_window_error():
         )
 
         engine = FastembedEmbeddingEngine(model="test-model", dimensions=2)
-        result = await engine.embed_text(["too long", "ok 1", "ok 2"])
+        result = (await engine.embed(["too long", "ok 1", "ok 2"])).vectors
 
     assert result == [[1.5, 1.5], [3.0, 3.0], [4.0, 4.0]]
 
@@ -138,7 +139,7 @@ async def test_fastembed_raises_when_short_text_still_exceeds_context_window():
         engine = FastembedEmbeddingEngine(model="test-model", dimensions=2)
 
         with pytest.raises(EmbeddingException, match="too short to split further"):
-            await engine.embed_text(["ab"])
+            await engine.embed(["ab"])
 
         assert embedding_model.embed.call_count == 1
 
@@ -166,7 +167,7 @@ async def test_litellm_embedding_does_not_retry_unsplittable_context_window_erro
 
     with patch("litellm.aembedding", AsyncMock(side_effect=context_error)) as embed_mock:
         with pytest.raises(EmbeddingContextWindowTooSmallError):
-            await engine.embed_text(["ab"])
+            await engine.embed(["ab"])
 
         assert embed_mock.await_count == 1
 
@@ -188,7 +189,7 @@ async def test_openai_compatible_embedding_does_not_retry_unsplittable_context_w
     engine._client.embeddings.create = create_mock
 
     with pytest.raises(EmbeddingContextWindowTooSmallError):
-        await engine.embed_text(["ab"])
+        await engine.embed(["ab"])
 
     assert create_mock.await_count == 1
 
@@ -220,7 +221,7 @@ async def test_litellm_embedding_splits_batch_on_vertex_instance_limit_error():
         return Mock(data=[{"embedding": [1.0, 1.0]} for _ in kwargs["input"]])
 
     with patch("litellm.aembedding", AsyncMock(side_effect=fake_aembedding)) as embed_mock:
-        result = await engine.embed_text(["a", "b", "c", "d"])
+        result = (await engine.embed(["a", "b", "c", "d"])).vectors
 
     assert result == [[1.0, 1.0]] * 4
     assert embed_mock.await_count > 1
@@ -263,7 +264,7 @@ async def test_litellm_embedding_splits_batch_on_vertex_model_batch_limit_error(
         return Mock(data=[{"embedding": [1.0, 1.0]} for _ in kwargs["input"]])
 
     with patch("litellm.aembedding", AsyncMock(side_effect=fake_aembedding)) as embed_mock:
-        result = await engine.embed_text(["a", "b", "c", "d"])
+        result = (await engine.embed(["a", "b", "c", "d"])).vectors
 
     assert result == [[1.0, 1.0]] * 4
     assert embed_mock.await_count > 1

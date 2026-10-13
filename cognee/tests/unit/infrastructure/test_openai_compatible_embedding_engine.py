@@ -35,17 +35,17 @@ class TestOpenAICompatibleEmbeddingEngine:
 
     @pytest.mark.asyncio
     async def test_mock_embedding(self, monkeypatch):
-        """When MOCK_EMBEDDING=true, embed_text returns zero vectors of correct dimensions."""
+        """When MOCK_EMBEDDING=true, embed returns zero vectors of correct dimensions."""
         monkeypatch.setenv("MOCK_EMBEDDING", "true")
         engine = self._make_engine(dimensions=4096)
-        result = await engine.embed_text(["hello", "world"])
+        result = (await engine.embed(["hello", "world"])).vectors
         assert len(result) == 2
         assert len(result[0]) == 4096
         assert all(v == 0.0 for v in result[0])
 
     @pytest.mark.asyncio
     async def test_embed_text_calls_openai_with_encoding_format_float(self, monkeypatch):
-        """embed_text must call OpenAI SDK with encoding_format='float'."""
+        """embed must call OpenAI SDK with encoding_format='float'."""
         monkeypatch.delenv("MOCK_EMBEDDING", raising=False)
 
         engine = self._make_engine()
@@ -61,7 +61,7 @@ class TestOpenAICompatibleEmbeddingEngine:
         engine._client = MagicMock()
         engine._client.embeddings.create = AsyncMock(return_value=mock_response)
 
-        result = await engine.embed_text(["test text"])
+        result = (await engine.embed(["test text"])).vectors
 
         # Verify create was called with encoding_format="float"
         engine._client.embeddings.create.assert_called_once_with(

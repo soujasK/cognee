@@ -18,6 +18,7 @@ import pytest_asyncio
 
 import cognee
 from cognee.context_global_variables import graph_db_config, vector_db_config
+from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingResult
 from cognee.infrastructure.databases.vector.embeddings.LiteLLMEmbeddingEngine import (
     LiteLLMEmbeddingEngine,
 )
@@ -33,8 +34,9 @@ DATASET = "csv_loader_ds"
 CSV_CONTENT = "id,name,section\n1,anemometer,weather\n2,barometer,weather\n3,seismograph,geology\n"
 
 
-async def _mock_embed_text(self, texts):
-    return [[float(len(t) % 7) / 10.0 + 0.1] * self.dimensions for t in texts]
+async def _mock_embed(self, texts):
+    vectors = [[float(len(t) % 7) / 10.0 + 0.1] * self.dimensions for t in texts]
+    return EmbeddingResult(vectors=vectors, tokens=0)
 
 
 @pytest_asyncio.fixture
@@ -71,7 +73,7 @@ async def clean_env(tmp_path, monkeypatch):
     csv_file = root / "instruments.csv"
     csv_file.write_text(CSV_CONTENT)
 
-    with patch.object(LiteLLMEmbeddingEngine, "embed_text", new=_mock_embed_text):
+    with patch.object(LiteLLMEmbeddingEngine, "embed", new=_mock_embed):
         yield str(csv_file)
 
     try:

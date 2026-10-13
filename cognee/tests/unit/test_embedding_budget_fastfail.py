@@ -127,7 +127,7 @@ async def test_litellm_budget_error_bypasses_retry(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_budget)
 
     with pytest.raises(LLMPaymentRequiredError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     # The critical assertion: exactly one attempt, no backoff ladder.
     assert calls["count"] == 1
@@ -148,7 +148,7 @@ async def test_litellm_proxy_budget_rejection_bypasses_retry(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_proxy_budget)
 
     with pytest.raises(LLMPaymentRequiredError) as exc_info:
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
     # The provider's own sentence is carried through, so the 402 is actionable.
@@ -180,7 +180,7 @@ async def test_litellm_budget_rejection_as_bad_request_bypasses_retry(monkeypatc
     monkeypatch.setattr(litellm, "aembedding", _raise_bad_request_budget)
 
     with pytest.raises(LLMPaymentRequiredError) as exc_info:
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
     assert exc_info.value.status_code == 402
@@ -212,7 +212,7 @@ async def test_transient_rate_limit_is_still_retried(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_transient_then_terminal)
 
     with pytest.raises(litellm.exceptions.AuthenticationError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 2
 
@@ -248,7 +248,7 @@ async def test_transient_error_mentioning_a_budget_is_still_retried(monkeypatch)
     monkeypatch.setattr(litellm, "aembedding", _raise_innocent_then_terminal)
 
     with pytest.raises(litellm.exceptions.AuthenticationError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 2
 
@@ -272,7 +272,7 @@ async def test_openai_compatible_budget_rejection_bypasses_retry(monkeypatch):
     engine._client.embeddings.create = AsyncMock(side_effect=_proxy_budget_error())
 
     with pytest.raises(LLMPaymentRequiredError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert engine._client.embeddings.create.await_count == 1
 
@@ -292,7 +292,7 @@ async def test_cancelled_error_still_bypasses_retry(monkeypatch):
     monkeypatch.setattr(litellm, "aembedding", _raise_cancelled)
 
     with pytest.raises(asyncio.CancelledError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
 
@@ -316,7 +316,7 @@ async def test_openai_compatible_structured_budget_rejection_bypasses_retry():
     engine._client.embeddings.create = AsyncMock(side_effect=_openai_structured_budget_error())
 
     with pytest.raises(LLMPaymentRequiredError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert engine._client.embeddings.create.await_count == 1
 
@@ -349,7 +349,7 @@ async def test_openai_compatible_transient_rate_limit_is_still_retried():
     engine._client.embeddings.create = AsyncMock(side_effect=_transient_then_terminal)
 
     with pytest.raises(EmbeddingCredentialsError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     # A callable, not a two-item list: if the auth branch regressed, call 3+
     # keeps raising the auth error instead of StopAsyncIteration, so the failure
@@ -412,7 +412,7 @@ async def test_ollama_engine_budget_rejection_bypasses_retry(monkeypatch):
     monkeypatch.setattr(aiohttp.ClientSession, "post", _fake_post)
 
     with pytest.raises(LLMPaymentRequiredError):
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert calls["count"] == 1
 
@@ -424,7 +424,7 @@ async def test_ollama_engine_object_shaped_context_window_error_is_terminal(monk
     The membership tests in ``_get_embedding`` read the error body directly, so
     an OpenAI-compatible proxy's object body used to test dict keys, always
     False, and a terminal over-length error became a retryable RuntimeError that
-    burned the full ladder before ``embed_text`` could split. Reachable through
+    burned the full ladder before ``embed`` could split. Reachable through
     the same misconfiguration that makes the budget case above reachable.
     """
     monkeypatch.setenv("MOCK_EMBEDDING", "false")
@@ -457,7 +457,7 @@ async def test_ollama_engine_object_shaped_context_window_error_is_terminal(monk
     # "ab" cannot be split further, so the recovery path gives up immediately and
     # the call count is the whole assertion: one attempt, no ladder.
     with pytest.raises(EmbeddingException, match="too short to split further"):
-        await engine.embed_text(["ab"])
+        await engine.embed(["ab"])
 
     assert calls["count"] == 1
 
@@ -482,7 +482,7 @@ async def test_openai_compatible_credentials_error_is_terminal_and_stays_a_422()
     engine._client.embeddings.create = AsyncMock(side_effect=_openai_auth_error())
 
     with pytest.raises(EmbeddingCredentialsError) as exc_info:
-        await engine.embed_text(["hello world"])
+        await engine.embed(["hello world"])
 
     assert engine._client.embeddings.create.await_count == 1
     assert exc_info.value.status_code == 422

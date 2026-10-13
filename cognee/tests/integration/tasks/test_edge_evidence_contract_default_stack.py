@@ -28,6 +28,7 @@ from cognee.api.v1.datasets import datasets
 from cognee.context_global_variables import set_database_global_context_variables
 from cognee.infrastructure.databases.graph import get_graph_engine
 from cognee.infrastructure.databases.relational import get_relational_engine
+from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingResult
 from cognee.infrastructure.databases.vector.embeddings.LiteLLMEmbeddingEngine import (
     LiteLLMEmbeddingEngine,
 )
@@ -71,7 +72,7 @@ def _mock_llm_output(text_input, system_prompt, response_model):
 
 
 async def _fake_embed(self, text):
-    return [[0.0] * (self.dimensions or 8) for _ in text]
+    return EmbeddingResult(vectors=[[0.0] * (self.dimensions or 8) for _ in text], tokens=0)
 
 
 async def _setup(tmp_path):
@@ -110,7 +111,7 @@ async def _graph_edge_ids_by_relationship():
 
 
 @pytest.mark.asyncio
-@patch.object(LiteLLMEmbeddingEngine, "embed_text", _fake_embed)
+@patch.object(LiteLLMEmbeddingEngine, "embed", _fake_embed)
 @patch.object(LLMGateway, "acreate_structured_output", new_callable=AsyncMock)
 async def test_edge_evidence_follows_the_graph_through_its_lifecycle(mock_struct, tmp_path):
     mock_struct.side_effect = _mock_llm_output

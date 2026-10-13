@@ -20,6 +20,7 @@ import pytest_asyncio
 
 import cognee
 from cognee.context_global_variables import graph_db_config, vector_db_config
+from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingResult
 from cognee.infrastructure.databases.vector.embeddings.LiteLLMEmbeddingEngine import (
     LiteLLMEmbeddingEngine,
 )
@@ -36,8 +37,9 @@ DATASET = "gadgets_ds"
 DATASET_SKIP = "gizmos_ds"
 
 
-async def _mock_embed_text(self, texts):
-    return [[float(len(t) % 7) / 10.0] * self.dimensions for t in texts]
+async def _mock_embed(self, texts):
+    vectors = [[float(len(t) % 7) / 10.0] * self.dimensions for t in texts]
+    return EmbeddingResult(vectors=vectors, tokens=0)
 
 
 @pytest_asyncio.fixture
@@ -71,7 +73,7 @@ async def clean_env(tmp_path, monkeypatch):
     await cognee.prune.prune_system(metadata=True)
     await engine_setup()
 
-    with patch.object(LiteLLMEmbeddingEngine, "embed_text", new=_mock_embed_text):
+    with patch.object(LiteLLMEmbeddingEngine, "embed", new=_mock_embed):
         yield
 
     try:

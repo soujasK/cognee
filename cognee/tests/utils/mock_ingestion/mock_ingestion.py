@@ -16,7 +16,7 @@ How the replay works
   (one real LLM run) and optionally multiplied by ``generate_large_mock.py``.
 * Embeddings run through cognee's built-in ``MOCK_EMBEDDING`` switch: the real
   engine is constructed (its real tokenizer decides chunk boundaries, keeping
-  the title-substring matching aligned with the capture), but ``embed_text``
+  the title-substring matching aligned with the capture), but ``embed``
   returns zero-vectors.
 
 Everything else in the pipeline is real: chunking, graph writes, vector-store
@@ -194,7 +194,7 @@ def install_mocks(mock_data: dict[str, dict], mock_embeddings: bool = True) -> N
     if mock_embeddings:
         # cognee's built-in switch: the real embedding engine is still
         # constructed (its real tokenizer decides chunk boundaries), but
-        # embed_text skips the API and returns zero vectors. Clear cached
+        # embed skips the API and returns zero vectors. Clear cached
         # engines so the flag takes effect.
         os.environ["MOCK_EMBEDDING"] = "true"
     emb_mod.create_embedding_engine.cache_clear()

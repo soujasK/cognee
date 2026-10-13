@@ -16,6 +16,7 @@ import pytest
 import pytest_asyncio
 
 import cognee
+from cognee.infrastructure.databases.vector.embeddings.EmbeddingEngine import EmbeddingResult
 from cognee.infrastructure.databases.vector.embeddings.LiteLLMEmbeddingEngine import (
     LiteLLMEmbeddingEngine,
 )
@@ -140,10 +141,10 @@ async def clean_environment(tmp_path, monkeypatch):
     monkeypatch.setattr(add_data_points_module, "index_graph_edges", _noop_index)
     monkeypatch.setattr(LLMGateway, "acreate_structured_output", _mock_structured_output)
 
-    async def _mock_embed_text(self, text):
-        return [[0.0] * self.get_vector_size() for _ in text]
+    async def _mock_embed(self, text):
+        return EmbeddingResult(vectors=[[0.0] * self.get_vector_size() for _ in text], tokens=0)
 
-    monkeypatch.setattr(LiteLLMEmbeddingEngine, "embed_text", _mock_embed_text)
+    monkeypatch.setattr(LiteLLMEmbeddingEngine, "embed", _mock_embed)
 
     file_a = _file_meta("fileA")
     service = _FakeDriveService(files_by_folder={"root": [file_a]}, file_by_id={"fileA": file_a})

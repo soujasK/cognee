@@ -380,7 +380,7 @@ async def _remember_entry(
     entry,
     *,
     dataset_name: str,
-    dataset_id: UUID | None = None,
+    dataset_id: UUID | str | None = None,
     session_id: str | None,
     user,
     skill_improvement: dict[str, Any] | None = None,
@@ -390,6 +390,15 @@ async def _remember_entry(
     Routes to the remote HTTP client when ``cognee.serve(url=...)`` is
     active, otherwise runs the SessionManager call in-process.
     """
+    # Dataset resolution treats any str as a dataset *name*, so a UUID string
+    # (e.g. RememberResult.dataset_id) would silently create a dataset named
+    # after it. Normalize to UUID here, and refuse values that are not UUIDs.
+    if dataset_id is not None and not isinstance(dataset_id, UUID):
+        try:
+            dataset_id = UUID(str(dataset_id))
+        except ValueError:
+            raise ValueError(f"dataset_id must be a UUID, got {dataset_id!r}") from None
+
     from cognee.api.v1.serve.state import get_remote_client
 
     client = get_remote_client()

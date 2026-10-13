@@ -96,6 +96,47 @@ async def test_granted_user_writes_to_shared_dataset_by_id(env):
     assert await _cached_questions(env.member, "member-session") == ["q1"]
 
 
+async def _owned_dataset_names(user):
+    from cognee.modules.data.methods.get_datasets import get_datasets
+
+    return sorted(dataset.name for dataset in await get_datasets(user.id))
+
+
+@pytest.mark.asyncio
+async def test_string_dataset_id_targets_that_dataset(env):
+    # RememberResult.dataset_id is a str; passing it back must not create a
+    # dataset named after the UUID string.
+    names_before = await _owned_dataset_names(env.member)
+
+    result = await cognee.remember(
+        QAEntry(question="q1", answer="a1"),
+        dataset_id=str(env.shared.id),
+        session_id="member-session",
+        user=env.member,
+    )
+
+    assert result.dataset_id == str(env.shared.id)
+    assert result.dataset_name == "shared"
+    assert await _bound_dataset_id(env.member, "member-session") == env.shared.id
+    assert await _owned_dataset_names(env.member) == names_before
+
+
+@pytest.mark.asyncio
+async def test_non_uuid_dataset_id_is_rejected(env):
+    names_before = await _owned_dataset_names(env.member)
+
+    with pytest.raises(ValueError, match="dataset_id must be a UUID"):
+        await cognee.remember(
+            QAEntry(question="q1", answer="a1"),
+            dataset_id="shared",
+            session_id="member-session",
+            user=env.member,
+        )
+
+    assert await _cached_questions(env.member, "member-session") == []
+    assert await _owned_dataset_names(env.member) == names_before
+
+
 @pytest.mark.asyncio
 async def test_user_without_grant_caches_nothing(env):
     with pytest.raises(PermissionDeniedError):
@@ -142,6 +183,25 @@ async def test_remote_client_receives_dataset_id(monkeypatch):
         QAEntry(question="q1", answer="a1"),
         dataset_name="shared",
         dataset_id=dataset_id,
+        session_id="remote-session",
+        user=None,
+    )
+
+    assert client.remember_entry.await_args.kwargs["dataset_id"] == dataset_id
+
+
+@pytest.mark.asyncio
+async def test_remote_client_receives_string_dataset_id_as_uuid(monkeypatch):
+    remember_module = importlib.import_module("cognee.api.v1.remember.remember")
+    state = importlib.import_module("cognee.api.v1.serve.state")
+    client = SimpleNamespace(remember_entry=AsyncMock(return_value={"status": "session_stored"}))
+    monkeypatch.setattr(state, "get_remote_client", lambda: client)
+    dataset_id = uuid4()
+
+    await remember_module._remember_entry(
+        QAEntry(question="q1", answer="a1"),
+        dataset_name="shared",
+        dataset_id=str(dataset_id),
         session_id="remote-session",
         user=None,
     )
